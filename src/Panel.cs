@@ -450,11 +450,10 @@ namespace Pulp
                 g.ResetClip();
                 if (totalH > ListH)
                 {
-                    int trackH = ListH - S(8);
-                    int thumbH = Math.Max(S(24), (int)((long)trackH * ListH / Math.Max(1, totalH)));
-                    int maxScroll = Math.Max(1, totalH - ListH + S(4));
-                    int thumbY = lr.Y + S(4) + (int)((long)(trackH - thumbH) * scrollY / maxScroll);
-                    Theme.Fill(g, new Rectangle(W - S(6), thumbY, S(3), thumbH), Theme.Border, S(2));
+                    var t = ThumbRect();
+                    bool big = sbDrag || sbHover;   // grows a little under the mouse, like Windows 11
+                    int tw = big ? S(6) : S(3);
+                    Theme.Fill(g, new Rectangle(W - S(4) - tw, t.Y, tw, t.Height), big ? Theme.Sub : Theme.Border, tw / 2f);
                 }
             }
 
@@ -705,12 +704,58 @@ namespace Pulp
             return t.ToString("d MMM yyyy");
         }
 
+        // ------------------------------------------------------------ scroll bar (drag the thumb, or click the track to jump there)
+        bool sbDrag, sbHover;
+        int sbGrab;
+        bool HasBar => totalH > ListH;
+        Rectangle BarZone => new Rectangle(W - S(13), ListTop, S(13), ListH);
+
+        Rectangle ThumbRect()
+        {
+            int trackH = ListH - S(8);
+            int thumbH = Math.Max(S(24), (int)((long)trackH * ListH / Math.Max(1, totalH)));
+            int thumbY = ListTop + S(4) + (int)((long)(trackH - thumbH) * scrollY / Math.Max(1, MaxScroll));
+            return new Rectangle(W - S(13), thumbY, S(13), thumbH);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            if (sbDrag && !Capture) { sbDrag = false; Invalidate(); }
+        }
+
+        void BarTo(int mouseY)
+        {
+            var t = ThumbRect();
+            int trackH = ListH - S(8), room = Math.Max(1, trackH - t.Height);
+            float f = Math.Max(0, Math.Min(1, (mouseY - sbGrab - ListTop - S(4)) / (float)room));
+            int y = (int)Math.Round(f * MaxScroll);
+            scrollAnim.Stop();
+            scrollGoal = scrollPos = scrollFrom = y;
+            if (y == scrollY) return;
+            scrollY = y;
+            if (more && scrollY + ListH > totalH - S(400)) LoadMore();
+            hover = null;
+            touchIdle.Stop(); touchIdle.Start();
+            Invalidate();
+            Update();
+        }
+
         // ------------------------------------------------------------ mouse
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
             downItem = null;
             if (e.Button != MouseButtons.Left) return;
+            if (HasBar && BarZone.Contains(e.Location))
+            {
+                var t = ThumbRect();
+                sbGrab = t.Contains(e.Location) ? e.Y - t.Y : t.Height / 2;   // track click: centre the thumb there
+                sbDrag = true;
+                Capture = true;
+                BarTo(e.Y);
+                return;
+            }
             var h = FindHit(e.Location);
             if (h != null && h.Key.StartsWith("row:", StringComparison.Ordinal)) { downItem = h.Row; downPt = e.Location; }
         }
@@ -718,6 +763,10 @@ namespace Pulp
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+            if (sbDrag) { BarTo(e.Y); return; }
+            bool onBar = HasBar && BarZone.Contains(e.Location);
+            if (onBar != sbHover) { sbHover = onBar; Invalidate(); }
+            if (onBar) { if (hover != null) { hover = null; Invalidate(); } Cursor = Cursors.Default; return; }
             if (e.Button == MouseButtons.Left && downItem != null)
             {
                 var ds = SystemInformation.DragSize;
@@ -744,12 +793,22 @@ namespace Pulp
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
+            if (sbHover && !sbDrag) { sbHover = false; Invalidate(); }
             if (hover != null) { hover = null; Invalidate(); }
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
+            if (sbDrag)
+            {
+                sbDrag = false;
+                Capture = false;
+                sbHover = HasBar && BarZone.Contains(e.Location);
+                Invalidate();
+                if (Visible && !SuppressHide) search.Focus();
+                return;
+            }
             var h = FindHit(e.Location);
             bool wasDown = downItem != null && h != null && h.Row == downItem;
             downItem = null;
