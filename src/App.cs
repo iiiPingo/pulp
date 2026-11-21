@@ -18,11 +18,13 @@ namespace Pulp
         {
             using (var mutex = new Mutex(true, "Pulp.SingleInstance.v1", out bool created))
             {
+                bool exit = args.Contains("--exit");
                 if (!created)
                 {
-                    Native.PostMessage((IntPtr)0xffff, Native.WM_SHOWPULP, IntPtr.Zero, IntPtr.Zero);
+                    Native.PostMessage((IntPtr)0xffff, exit ? Native.WM_EXITPULP : Native.WM_SHOWPULP, IntPtr.Zero, IntPtr.Zero);
                     return;
                 }
+                if (exit) return;   // asked to close, but Pulp wasn't running
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
@@ -107,6 +109,7 @@ namespace Pulp
                 if (m.Msg == 0x031D) app.OnClipboardUpdate();
                 else if (m.Msg == 0x0312) app.OnHotkey();
                 else if (m.Msg == Native.WM_SHOWPULP) app.OpenFromTray();
+                else if (m.Msg == Native.WM_EXITPULP) app.ExitSoon();
             }
             catch (Exception ex) { Log.Crash(ex); }
             base.WndProc(ref m);
@@ -617,6 +620,14 @@ namespace Pulp
             if (seq == 0) { Balloon("Pulp", "Another app is holding the clipboard. Try again in a moment.", ToolTipIcon.Warning, null); return; }
             ignoreSeq = seq;
             lastSeq = seq;
+        }
+
+        // clean exit on request: after this message is handled, not inside it
+        public void ExitSoon()
+        {
+            var t = new System.Windows.Forms.Timer { Interval = 10 };
+            t.Tick += (o, e) => { t.Stop(); t.Dispose(); try { Exit(); } catch (Exception ex) { Log.Crash(ex); ExitThread(); } };
+            t.Start();
         }
 
         void Exit()

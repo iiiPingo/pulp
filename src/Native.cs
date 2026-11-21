@@ -54,6 +54,7 @@ namespace Pulp
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder sb, ref int size);
 
         public static readonly int WM_SHOWPULP = RegisterWindowMessage("Pulp.ShowPanel.v1");
+        public static readonly int WM_EXITPULP = RegisterWindowMessage("Pulp.Exit.v1");   // "Pulp.exe --exit" (Minibar's Stop / updates)
 
         public static string ClassOf(IntPtr h)
         {

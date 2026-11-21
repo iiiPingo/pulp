@@ -26,6 +26,9 @@ namespace Pulp
         List<Item> rows = new List<Item>();
         readonly List<int> tops = new List<int>();
         int totalH, scrollY, sel, gen;
+        // smooth scrolling: the wheel moves scrollGoal, scrollAnim eases scrollY toward it (~60 fps)
+        float scrollPos, scrollGoal;
+        readonly Timer scrollAnim = new Timer { Interval = 15 };
         bool more, loadingMore;
         long count;
         string hover, query = "";
@@ -94,6 +97,7 @@ namespace Pulp
             search.HandleCreated += (o, e) => { try { Native.SendMessage(search.Handle, 0x1501, (IntPtr)1, "Search your clipboard"); } catch { } };
             Controls.Add(search);
 
+            scrollAnim.Tick += (o, e) => ScrollStep();
             searchTimer = new Timer { Interval = 110 };
             searchTimer.Tick += (o, e) => { searchTimer.Stop(); if (search.Text.Trim() != query) { query = search.Text.Trim(); Reload(false); } };
 
@@ -138,6 +142,7 @@ namespace Pulp
                 query = "";
                 sel = 0;
                 scrollY = 0;
+                SnapScroll();
                 Reload(true);
             }
             if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
@@ -260,7 +265,7 @@ namespace Pulp
             int keep = keepId != 0 ? rows.FindIndex(r => r.Id == keepId) : -1;
             if (keep >= 0) sel = keep;
             else if (keepId != 0) sel = Math.Max(0, Math.Min(sel, rows.Count - 1));   // the selected item was deleted
-            else { sel = 0; scrollY = 0; }
+            else { sel = 0; scrollY = 0; SnapScroll(); }
             LayoutRows();
             EnsureVisible();
             Invalidate();
@@ -293,15 +298,40 @@ namespace Pulp
             ClampScroll();
         }
 
-        void ClampScroll() => scrollY = Math.Max(0, Math.Min(scrollY, Math.Max(0, totalH - ListH + S(4))));
+        int MaxScroll => Math.Max(0, totalH - ListH + S(4));
+
+        void ClampScroll()
+        {
+            scrollY = Math.Max(0, Math.Min(scrollY, MaxScroll));
+            scrollGoal = Math.Max(0, Math.Min(scrollGoal, MaxScroll));
+            scrollPos = Math.Max(0, Math.Min(scrollPos, MaxScroll));
+        }
+
+        // a jump (keyboard, new search, reload): no glide
+        void SnapScroll() { scrollAnim.Stop(); scrollGoal = scrollPos = scrollY; }
+
+        void ScrollStep()
+        {
+            float d = scrollGoal - scrollPos;
+            if (Math.Abs(d) < 0.6f) { scrollPos = scrollGoal; scrollAnim.Stop(); }
+            else scrollPos += d * 0.3f;
+            int y = (int)Math.Round(scrollPos);
+            if (y == scrollY && scrollAnim.Enabled) return;
+            scrollY = y;
+            if (more && scrollY + ListH > totalH - S(400)) LoadMore();
+            hover = null;
+            Invalidate();
+            Update();
+        }
 
         void EnsureVisible()
         {
             if (sel < 0 || sel >= rows.Count) return;
-            int y = tops[sel], h = RowH(rows[sel]);
+            int y = tops[sel], h = RowH(rows[sel]), before = scrollY;
             if (y < scrollY) scrollY = y;
             else if (y + h > scrollY + ListH) scrollY = y + h - ListH + S(4);
             ClampScroll();
+            if (scrollY != before) SnapScroll();
             if (more && scrollY + ListH > totalH - S(400)) LoadMore();
         }
 
@@ -731,11 +761,9 @@ namespace Pulp
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             base.OnMouseWheel(e);
-            scrollY -= e.Delta * S(64) * 3 / 120;
-            ClampScroll();
-            if (more && scrollY + ListH > totalH - S(400)) LoadMore();
-            hover = null;
-            Invalidate();
+            // the real delta: a touchpad sends small steps and scrolls by the pixel
+            scrollGoal = Math.Max(0, Math.Min(MaxScroll, scrollGoal - e.Delta * S(64) * 3 / 120f));
+            if (!scrollAnim.Enabled) { scrollPos = scrollY; scrollAnim.Start(); }
         }
 
         static string TipFor(string key, Item row)
