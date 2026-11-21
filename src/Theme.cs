@@ -39,6 +39,37 @@ namespace Pulp
         public static Font UiSemi(float size) => UiSemiFamily != null ? new Font(UiSemiFamily, size) : new Font(UiFamily, size, FontStyle.Bold);
         public static Font UiTitle(float size) => UiDisplaySemi != null ? new Font(UiDisplaySemi, size) : UiSemi(size);
 
+        // Arabic text: Segoe UI Variable has no Arabic letters, so Windows falls back to an old font.
+        // Use SF Arabic if it's installed, then Dubai, then Segoe UI (which has proper Arabic).
+        public static readonly string ArabicFamily =
+            FontExists("SF Arabic") ? "SF Arabic" : FontExists("SF Pro Arabic") ? "SF Pro Arabic"
+            : FontExists("Dubai") ? "Dubai" : "Segoe UI";
+        public static Font Arabic(float size) => new Font(ArabicFamily, size);
+
+        public static bool HasArabic(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return false;
+            int n = Math.Min(t.Length, 400);
+            for (int i = 0; i < n; i++)
+            {
+                char c = t[i];
+                if ((c >= '\u0600' && c <= '\u06FF') || (c >= '\u0750' && c <= '\u077F') || (c >= '\u08A0' && c <= '\u08FF')
+                    || (c >= '\uFB50' && c <= '\uFDFF') || (c >= '\uFE70' && c <= '\uFEFF')) return true;
+            }
+            return false;
+        }
+
+        // starts with Arabic (first real letter): show it right-aligned, reading right to left
+        public static bool RtlFirst(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return false;
+            foreach (char c in t)
+            {
+                if (char.IsLetter(c)) return (c >= '\u0590' && c <= '\u08FF') || (c >= '\uFB1D' && c <= '\uFEFF');
+            }
+            return false;
+        }
+
         // Segoe Fluent Icons / MDL2 glyphs
         public const string GSearch = "", GLink = "", GText = "", GFolder = "", GImage = "",
             GPin = "", GUnpin = "", GPinned = "", GDelete = "", GSave = "", GCopy = "",

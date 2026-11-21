@@ -692,7 +692,7 @@ namespace Pulp
             bool canPaste = S.PasteOnEnter && ValidTarget(Panel.Target);
             IntPtr target = Panel.Target;
             if (canPaste) m.Items.Add(Mi("Paste", () => Use(it, false, false, target), keys: "Enter"));
-            if (canPaste && it.Kind != Kind.Image) m.Items.Add(Mi(it.Kind == Kind.Files ? "Paste as file paths" : "Paste as plain text", () => Use(it, true, false, target), keys: "Shift+Enter"));
+            if (canPaste && it.Kind != Kind.Image) m.Items.Add(Mi(it.Kind == Kind.Files ? "Paste as file paths" : "Paste as plain text", () => Use(it, true, false, target)));
             m.Items.Add(Mi("Copy", () => Use(it, false, true, IntPtr.Zero), keys: canPaste ? "Ctrl+Enter" : "Enter"));
             m.Items.Add(new ToolStripSeparator());
             m.Items.Add(Mi(it.Pinned ? "Unpin" : "Pin", () => TogglePin(it), keys: "Ctrl+P"));

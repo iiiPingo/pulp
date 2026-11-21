@@ -17,7 +17,7 @@ namespace Pulp
         readonly App app;
         readonly float s;
         readonly TextBox search;
-        readonly Font fBody, fSmall, fChip, fChipSel, fIcon, fIconSmall, fIconRow;
+        readonly Font fBody, fBodyAr, fSmall, fChip, fChipSel, fIcon, fIconSmall, fIconRow;
         readonly List<Hit> hits = new List<Hit>();
         readonly Timer searchTimer;
         readonly ThumbCache thumbs;
@@ -31,6 +31,7 @@ namespace Pulp
         readonly System.Diagnostics.Stopwatch scrollClock = new System.Diagnostics.Stopwatch();
         const double ScrollMs = 220;   // each wheel notch glides for this long, easing out
         readonly Timer scrollAnim = new Timer { Interval = 10 };
+        readonly Timer touchIdle = new Timer { Interval = 150 };
         bool more, loadingMore;
         long count;
         string hover, query = "";
@@ -82,6 +83,7 @@ namespace Pulp
             using (var g = CreateGraphics()) s = g.DpiX / 96f;
 
             fBody = Theme.Ui(10.5f);
+            fBodyAr = Theme.Arabic(10.5f);
             fSmall = Theme.Ui(9f);
             fChip = Theme.Ui(9.5f);
             fChipSel = Theme.UiSemi(9.5f);
@@ -100,6 +102,7 @@ namespace Pulp
             Controls.Add(search);
 
             scrollAnim.Tick += (o, e) => ScrollStep();
+            touchIdle.Tick += (o, e) => { touchIdle.Stop(); Invalidate(); };
             searchTimer = new Timer { Interval = 110 };
             searchTimer.Tick += (o, e) => { searchTimer.Stop(); if (search.Text.Trim() != query) { query = search.Text.Trim(); Reload(false); } };
 
@@ -365,7 +368,7 @@ namespace Pulp
                 case Keys.Home when e.Control: MoveSel(-rows.Count); break;
                 case Keys.End when e.Control: MoveSel(rows.Count); break;
                 case Keys.Enter:
-                    if (it != null) app.Use(it, plain: e.Shift, copyOnly: e.Control, target: Target);
+                    if (it != null) app.Use(it, plain: false, copyOnly: e.Control, target: Target);
                     break;
                 case Keys.Tab: SetFilter(filter + (e.Shift ? -1 : 1)); break;
                 case Keys.D1 when e.Control: case Keys.D2 when e.Control: case Keys.D3 when e.Control:
@@ -493,10 +496,6 @@ namespace Pulp
             string left = app.S.Paused ? "Paused · not recording" : Filtering ? rows.Count + (more ? "+" : "") + " found" : count.ToString("N0") + (count == 1 ? " item" : " items");
             int lw = TextRenderer.MeasureText(g, left, fSmall, Size.Empty, TextFormatFlags.NoPadding).Width;
             TextRenderer.DrawText(g, left, fSmall, fr, app.S.Paused ? Theme.Accent : Theme.Dim, L);
-            bool canPaste = app.S.PasteOnEnter && app.ValidTarget(Target);
-            string hint = canPaste ? "Enter pastes into " + TargetName() + "  ·  Shift+Enter plain" : "Enter copies  ·  Ctrl+P pin";
-            TextRenderer.DrawText(g, hint, fSmall, new Rectangle(fr.X + lw + S(16), fr.Y, fr.Width - lw - S(16), fr.Height), Theme.Dim,
-                TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
         }
 
         string TargetName()
@@ -571,7 +570,11 @@ namespace Pulp
             }
 
             int ty = it.Kind == Kind.Image ? r.Y + S(22) : r.Y + S(9);
-            TextRenderer.DrawText(g, Title(it), fBody, new Rectangle(x, ty, right - x, S(23)), Theme.Text, L);
+            string title = Title(it);
+            if (Theme.HasArabic(title))
+                TextRenderer.DrawText(g, title, fBodyAr, new Rectangle(x, ty, right - x, S(23)), Theme.Text,
+                    Theme.RtlFirst(title) ? (L & ~TextFormatFlags.Left) | TextFormatFlags.Right | TextFormatFlags.RightToLeft : L);
+            else TextRenderer.DrawText(g, title, fBody, new Rectangle(x, ty, right - x, S(23)), Theme.Text, L);
             var mr = new Rectangle(x, ty + S(25), right - x, S(19));
             string meta = Meta(it);
             if (it.Original != null)
@@ -603,7 +606,7 @@ namespace Pulp
             {
                 g.SetClip(path, CombineMode.Intersect);
                 // full quality at rest; a cheaper filter while gliding keeps every frame on time
-                bool gliding = scrollAnim.Enabled;
+                bool gliding = scrollAnim.Enabled || touchIdle.Enabled;
                 g.InterpolationMode = gliding ? InterpolationMode.Bilinear : InterpolationMode.HighQualityBicubic;
                 g.PixelOffsetMode = gliding ? PixelOffsetMode.HighSpeed : PixelOffsetMode.HighQuality;
                 g.DrawImage(bmp, dr);
@@ -771,8 +774,26 @@ namespace Pulp
             base.OnMouseWheel(e);
             // the real delta: a touchpad sends small steps and scrolls by the pixel
             if (!scrollAnim.Enabled) scrollPos = scrollY;
+            float goal = Math.Max(0, Math.Min(MaxScroll, scrollGoal - e.Delta * S(64) * 3 / 120f));
+            if (Math.Abs(e.Delta) < 120)
+            {
+                // touchpad: many tiny steps that already arrive smoothly; follow the fingers 1:1,
+                // a glide on top only makes it lag behind
+                scrollAnim.Stop();
+                scrollGoal = scrollPos = goal;
+                scrollFrom = goal;
+                int y = (int)Math.Round(goal);
+                if (y == scrollY) return;
+                scrollY = y;
+                if (more && scrollY + ListH > totalH - S(400)) LoadMore();
+                hover = null;
+                Invalidate();
+                Update();
+                touchIdle.Stop(); touchIdle.Start();   // repaint thumbnails at full quality once the fingers stop
+                return;
+            }
             scrollFrom = scrollPos;   // retarget from wherever the glide is right now
-            scrollGoal = Math.Max(0, Math.Min(MaxScroll, scrollGoal - e.Delta * S(64) * 3 / 120f));
+            scrollGoal = goal;
             scrollClock.Restart();
             ScrollStep();
             scrollAnim.Start();
