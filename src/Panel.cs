@@ -27,8 +27,10 @@ namespace Pulp
         readonly List<int> tops = new List<int>();
         int totalH, scrollY, sel, gen;
         // smooth scrolling: the wheel moves scrollGoal, scrollAnim eases scrollY toward it (~60 fps)
-        float scrollPos, scrollGoal;
-        readonly Timer scrollAnim = new Timer { Interval = 15 };
+        float scrollPos, scrollGoal, scrollFrom;
+        readonly System.Diagnostics.Stopwatch scrollClock = new System.Diagnostics.Stopwatch();
+        const double ScrollMs = 220;   // each wheel notch glides for this long, easing out
+        readonly Timer scrollAnim = new Timer { Interval = 10 };
         bool more, loadingMore;
         long count;
         string hover, query = "";
@@ -310,13 +312,17 @@ namespace Pulp
         // a jump (keyboard, new search, reload): no glide
         void SnapScroll() { scrollAnim.Stop(); scrollGoal = scrollPos = scrollY; }
 
+        // time-based: the position depends on elapsed time, not on how many timer ticks arrived,
+        // so a slow frame never turns into a jump
         void ScrollStep()
         {
-            float d = scrollGoal - scrollPos;
-            if (Math.Abs(d) < 0.6f) { scrollPos = scrollGoal; scrollAnim.Stop(); }
-            else scrollPos += d * 0.3f;
+            double t = Math.Min(1, scrollClock.Elapsed.TotalMilliseconds / ScrollMs);
+            double e = 1 - Math.Pow(1 - t, 3);   // ease-out cubic
+            scrollPos = (float)(scrollFrom + (scrollGoal - scrollFrom) * e);
+            bool ended = false;
+            if (t >= 1) { scrollPos = scrollGoal; scrollAnim.Stop(); ended = true; }
             int y = (int)Math.Round(scrollPos);
-            if (y == scrollY && scrollAnim.Enabled) return;
+            if (y == scrollY && !ended) return;   // (the last frame repaints thumbnails at full quality)
             scrollY = y;
             if (more && scrollY + ListH > totalH - S(400)) LoadMore();
             hover = null;
@@ -596,8 +602,10 @@ namespace Pulp
             using (var path = Theme.Round(box, S(6)))
             {
                 g.SetClip(path, CombineMode.Intersect);
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                // full quality at rest; a cheaper filter while gliding keeps every frame on time
+                bool gliding = scrollAnim.Enabled;
+                g.InterpolationMode = gliding ? InterpolationMode.Bilinear : InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = gliding ? PixelOffsetMode.HighSpeed : PixelOffsetMode.HighQuality;
                 g.DrawImage(bmp, dr);
             }
             g.Restore(state);
@@ -762,8 +770,12 @@ namespace Pulp
         {
             base.OnMouseWheel(e);
             // the real delta: a touchpad sends small steps and scrolls by the pixel
+            if (!scrollAnim.Enabled) scrollPos = scrollY;
+            scrollFrom = scrollPos;   // retarget from wherever the glide is right now
             scrollGoal = Math.Max(0, Math.Min(MaxScroll, scrollGoal - e.Delta * S(64) * 3 / 120f));
-            if (!scrollAnim.Enabled) { scrollPos = scrollY; scrollAnim.Start(); }
+            scrollClock.Restart();
+            ScrollStep();
+            scrollAnim.Start();
         }
 
         static string TipFor(string key, Item row)

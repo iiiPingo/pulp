@@ -13,7 +13,7 @@
 - Normal resizable window that hides to the tray, starts with Windows.
 
 ## Install
-1. Download `Pulp-1.3.zip` from [Releases](../../releases/latest) and unzip it into its own folder.
+1. Download `Pulp-1.3.1.zip` from [Releases](../../releases/latest) and unzip it into its own folder.
 2. Run `Pulp.exe`. If SmartScreen warns, click **More info > Run anyway** (the exe is unsigned).
 
 Runs on Windows 10/11 with nothing to install. History is stored in `%APPDATA%\Pulp`.
