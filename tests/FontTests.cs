@@ -28,7 +28,15 @@ static class FontTests
         using (var f = Fonts.Make("No Such Font", 10f, "Segoe UI"))
             Check(f.SizeInPoints > 9.9f, "missing font falls back without crashing (got " + f.Name + ")");
 
-        Console.WriteLine(fails == 0 ? "All font tests passed" : fails + " failed");
+        // zoom steps (Zoom.cs)
+        Check(Zoom.Step(100, 1) == 110 && Zoom.Step(100, -1) == 90, "zoom steps 10% in and out");
+        Check(Zoom.Step(150, 1) == 150 && Zoom.Step(80, -1) == 80, "zoom stops at 80% and 150%");
+        Check(Zoom.Step(103, 1) == 110 && Zoom.Step(500, -1) == 140, "odd values snap back onto the steps");
+        Check(Zoom.Step(100, 240) == 110 && Zoom.Step(100, -360) == 90, "a big wheel turn is still one step");
+        Check(Zoom.Parse("120") == 120 && Zoom.Parse("999") == 150 && Zoom.Parse("10") == 80, "settings value is kept in range");
+        Check(Zoom.Parse("") == 100 && Zoom.Parse("abc") == 100, "missing or broken value means 100%");
+
+        Console.WriteLine(fails == 0 ? "All tests passed" : fails + " failed");
         return fails == 0 ? 0 : 1;
     }
 }

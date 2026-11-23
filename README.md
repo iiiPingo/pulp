@@ -14,6 +14,7 @@
 
 ## What's new in 1.3.4
 - New font: **IBM Plex Sans** for English and **IBM Plex Sans Arabic** for Arabic. They are made as a pair, so English and Arabic clips look like they belong together. The fonts are inside Pulp.exe, nothing gets installed on your PC.
+- **Zoom**: Ctrl + mouse wheel, or Ctrl + = and Ctrl + -, makes everything in the history window bigger or smaller (80% to 150%). Ctrl + 0 goes back to normal. Pulp remembers your zoom.
 - **Bigger text** in the history list (12 pt instead of 10.5 pt, and the grey line under each clip is bigger too). Rows are a little taller to fit.
 
 ## Install

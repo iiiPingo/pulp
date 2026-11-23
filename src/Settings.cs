@@ -19,6 +19,7 @@ namespace Pulp
         public bool CleanLinks = true;
         public bool PasteOnEnter = true;
         public bool HideAfterPaste = false;
+        public int Zoom = Pulp.Zoom.Normal;     // history window zoom in percent (80-150)
         public int WinX, WinY, WinW, WinH;     // window position/size (0 = not placed yet)
         public int MaxItems = 100000;          // text/link/file items kept (pinned don't count)
         public int ImageCapMB = 2048;          // screenshots/images on disk (pinned never removed)
@@ -46,6 +47,7 @@ namespace Pulp
                         case "cleanlinks": s.CleanLinks = v != "0"; break;
                         case "pasteonenter": s.PasteOnEnter = v != "0"; break;
                         case "hideafterpaste": s.HideAfterPaste = v == "1"; break;
+                        case "zoom": s.Zoom = Pulp.Zoom.Parse(v); break;
                         case "window":
                             var w = v.Split(',');
                             if (w.Length == 4 && int.TryParse(w[0], out int wx) && int.TryParse(w[1], out int wy) && int.TryParse(w[2], out int ww) && int.TryParse(w[3], out int wh))
@@ -77,6 +79,7 @@ namespace Pulp
                     "cleanlinks=" + B(CleanLinks),
                     "pasteonenter=" + B(PasteOnEnter),
                     "hideafterpaste=" + B(HideAfterPaste),
+                    "zoom=" + Zoom,
                     "window=" + WinX + "," + WinY + "," + WinW + "," + WinH,
                     "maxitems=" + MaxItems,
                     "imagecapmb=" + ImageCapMB,

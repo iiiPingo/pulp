@@ -15,9 +15,11 @@ namespace Pulp
         class Hit { public Rectangle R; public string Key; public Action Click; public Action<Point> Right; public Item Row; }
 
         readonly App app;
-        readonly float s;
+        readonly float dpi;     // screen scale (1 = 100%)
+        float s;                // screen scale x zoom: every size goes through S()
         readonly TextBox search;
-        readonly Font fBody, fBodyAr, fSmall, fChip, fChipSel, fIcon, fIconSmall, fIconRow;
+        Font fBody, fBodyAr, fSmall, fChip, fChipSel, fIcon, fIconSmall, fIconRow;
+        long zoomNoteUntil;     // footer shows "Zoom 110%" until this tick
         readonly List<Hit> hits = new List<Hit>();
         readonly Timer searchTimer;
         readonly ThumbCache thumbs;
@@ -31,6 +33,8 @@ namespace Pulp
         readonly System.Diagnostics.Stopwatch scrollClock = new System.Diagnostics.Stopwatch();
         const double ScrollMs = 220;   // each wheel notch glides for this long, easing out
         readonly Timer scrollAnim = new Timer { Interval = 10 };
+        readonly Timer zoomNoteTimer = new Timer { Interval = 1600 };   // hides the footer zoom note
+        int zoomWheel;          // Ctrl+wheel steps added up until one full notch
         readonly Timer touchIdle = new Timer { Interval = 150 };
         bool more, loadingMore;
         long count;
@@ -80,18 +84,13 @@ namespace Pulp
             KeyPreview = false;
             SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
 
-            using (var g = CreateGraphics()) s = g.DpiX / 96f;
+            using (var g = CreateGraphics()) dpi = g.DpiX / 96f;
+            s = dpi;    // window size below uses screen scale only; zoom never resizes the window
 
-            fBody = Theme.Ui(12f);
-            fBodyAr = Theme.Arabic(12f);
-            fSmall = Theme.Ui(10.5f);
-            fChip = Theme.Ui(10f);
-            fChipSel = Theme.UiSemi(10f);
-            fIcon = new Font(Theme.IconFont, 11.5f);
-            fIconSmall = new Font(Theme.IconFont, 10f);
-            fIconRow = new Font(Theme.IconFont, 13f);
             MinimumSize = new Size(S(380), S(420));
             ClientSize = new Size(S(470), S(660));
+            s = dpi * Zoom.Clamp(app.S.Zoom) / 100f;
+            MakeFonts();
             thumbs = new ThumbCache(app.Store, 48);
 
             search = new TextBox { BorderStyle = BorderStyle.None, BackColor = Theme.Field, ForeColor = Theme.Text, Font = fBody };
@@ -102,6 +101,7 @@ namespace Pulp
             Controls.Add(search);
 
             scrollAnim.Tick += (o, e) => ScrollStep();
+            zoomNoteTimer.Tick += (o, e) => { zoomNoteTimer.Stop(); Invalidate(new Rectangle(0, Ht - FooterH, W, FooterH)); };
             touchIdle.Tick += (o, e) => { touchIdle.Stop(); Invalidate(); };
             searchTimer = new Timer { Interval = 110 };
             searchTimer.Tick += (o, e) => { searchTimer.Stop(); if (search.Text.Trim() != query) { query = search.Text.Trim(); Reload(false); } };
@@ -121,6 +121,48 @@ namespace Pulp
                 Native.DwmSetWindowAttribute(Handle, 34, ref border, 4);                       // border color
             }
             catch { }
+        }
+
+        void MakeFonts()
+        {
+            float z = s / dpi;
+            var old = new[] { fBody, fBodyAr, fSmall, fChip, fChipSel, fIcon, fIconSmall, fIconRow };
+            fBody = Theme.Ui(12f * z);
+            fBodyAr = Theme.Arabic(12f * z);
+            fSmall = Theme.Ui(10.5f * z);
+            fChip = Theme.Ui(10f * z);
+            fChipSel = Theme.UiSemi(10f * z);
+            fIcon = new Font(Theme.IconFont, 11.5f * z);
+            fIconSmall = new Font(Theme.IconFont, 10f * z);
+            fIconRow = new Font(Theme.IconFont, 13f * z);
+            if (search != null) search.Font = fBody;
+            foreach (var f in old) f?.Dispose();
+        }
+
+        // Ctrl + wheel, Ctrl + = / - / 0. Only this window zooms; its size stays the same.
+        void SetZoom(int pct)
+        {
+            pct = Zoom.Clamp(pct);
+            zoomNoteUntil = DateTime.UtcNow.Ticks + TimeSpan.TicksPerMillisecond * 1500;
+            zoomNoteTimer.Stop(); zoomNoteTimer.Start();
+            if (pct == app.S.Zoom && Math.Abs(s - dpi * pct / 100f) < 0.001f) { Invalidate(); return; }
+            // keep the same row at the top of the list
+            int anchor = -1, into = 0;
+            for (int i = 0; i < tops.Count; i++) if (tops[i] <= scrollY) anchor = i; else break;
+            if (anchor >= 0) into = scrollY - tops[anchor];
+            float oldS = s;
+            app.S.Zoom = pct;
+            s = dpi * pct / 100f;
+            MakeFonts();
+            scrollAnim.Stop();
+            LayoutRows();
+            scrollY = anchor >= 0 && anchor < tops.Count ? tops[anchor] + (int)Math.Round(into * s / oldS) : 0;
+            scrollGoal = scrollPos = scrollFrom = scrollY;
+            ClampScroll();
+            Relayout();
+            hover = null;
+            Invalidate();
+            try { app.S.Save(); } catch { }
         }
 
         void Relayout()
@@ -361,6 +403,9 @@ namespace Pulp
             var it = Selected;
             switch (e.KeyCode)
             {
+                case Keys.Oemplus when e.Control: case Keys.Add when e.Control: SetZoom(Zoom.Step(app.S.Zoom, 1)); break;
+                case Keys.OemMinus when e.Control: case Keys.Subtract when e.Control: SetZoom(Zoom.Step(app.S.Zoom, -1)); break;
+                case Keys.D0 when e.Control: case Keys.NumPad0 when e.Control: SetZoom(Zoom.Normal); break;
                 case Keys.Down: MoveSel(1); break;
                 case Keys.Up: MoveSel(-1); break;
                 case Keys.PageDown: MoveSel(7); break;
@@ -494,7 +539,9 @@ namespace Pulp
             var fr = new Rectangle(Pad + S(4), Ht - FooterH, W - Pad * 2 - S(8), FooterH);
             string left = app.S.Paused ? "Paused · not recording" : Filtering ? rows.Count + (more ? "+" : "") + " found" : count.ToString("N0") + (count == 1 ? " item" : " items");
             int lw = TextRenderer.MeasureText(g, left, fSmall, Size.Empty, TextFormatFlags.NoPadding).Width;
-            TextRenderer.DrawText(g, left, fSmall, fr, app.S.Paused ? Theme.Accent : Theme.Dim, L);
+            bool zoomNote = DateTime.UtcNow.Ticks < zoomNoteUntil;
+            if (zoomNote) left = "Zoom " + app.S.Zoom + "%" + (app.S.Zoom == Zoom.Normal ? "" : "  ·  Ctrl+0 to reset");
+            TextRenderer.DrawText(g, left, fSmall, fr, zoomNote || app.S.Paused ? Theme.Accent : Theme.Dim, L);
         }
 
         string TargetName()
@@ -831,6 +878,13 @@ namespace Pulp
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             base.OnMouseWheel(e);
+            if ((ModifierKeys & Keys.Control) != 0)
+            {
+                // Ctrl + wheel zooms; a touchpad pinch/scroll sends small steps, so add them up
+                zoomWheel += e.Delta;
+                if (Math.Abs(zoomWheel) >= 120) { SetZoom(Zoom.Step(app.S.Zoom, zoomWheel)); zoomWheel = 0; }
+                return;
+            }
             // the real delta: a touchpad sends small steps and scrolls by the pixel
             if (!scrollAnim.Enabled) scrollPos = scrollY;
             float goal = Math.Max(0, Math.Min(MaxScroll, scrollGoal - e.Delta * S(64) * 3 / 120f));
