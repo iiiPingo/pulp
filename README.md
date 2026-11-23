@@ -12,8 +12,12 @@
 - **Private by default**: skips anything password managers mark as private, plus an ignore list (KeePass, 1Password, Bitwarden and others).
 - Normal resizable window that hides to the tray, starts with Windows.
 
+## What's new in 1.3.4
+- New font: **IBM Plex Sans** for English and **IBM Plex Sans Arabic** for Arabic. They are made as a pair, so English and Arabic clips look like they belong together. The fonts are inside Pulp.exe, nothing gets installed on your PC.
+- **Bigger text** in the history list (12 pt instead of 10.5 pt, and the grey line under each clip is bigger too). Rows are a little taller to fit.
+
 ## Install
-1. Download `Pulp-1.3.3.zip` from [Releases](../../releases/latest) and unzip it into its own folder.
+1. Download `Pulp-1.3.4.zip` from [Releases](../../releases/latest) and unzip it into its own folder.
 2. Run `Pulp.exe`. If SmartScreen warns, click **More info > Run anyway** (the exe is unsigned).
 
 Runs on Windows 10/11 with nothing to install. History is stored in `%APPDATA%\Pulp`.
@@ -29,4 +33,4 @@ On Linux it builds against Mono's .NET Framework 4.8 reference assemblies (`mono
 C# WinForms on .NET Framework 4.8. SQLite through Windows' own built-in `winsqlite3.dll` (no packages), images stored as PNG with thumbnails, `AddClipboardFormatListener` for capture and `SendInput` for pasting.
 
 ## License
-MIT
+MIT. The bundled IBM Plex fonts are under the SIL Open Font License (`src/fonts/OFL.txt`).

@@ -30,21 +30,13 @@ namespace Pulp
 
         public static readonly string IconFont = FontExists("Segoe Fluent Icons") ? "Segoe Fluent Icons" : "Segoe MDL2 Assets";
 
-        // Windows 11's own UI font (Segoe UI Variable), falling back to Segoe UI on Windows 10
-        static readonly string UiFamily = FontExists("Segoe UI Variable Text") ? "Segoe UI Variable Text" : "Segoe UI";
-        static readonly string UiSemiFamily = FontExists("Segoe UI Variable Text Semibold") ? "Segoe UI Variable Text Semibold"
-            : FontExists("Segoe UI Semibold") ? "Segoe UI Semibold" : null;
-        static readonly string UiDisplaySemi = FontExists("Segoe UI Variable Display Semibold") ? "Segoe UI Variable Display Semibold" : null;
-        public static Font Ui(float size) => new Font(UiFamily, size);
-        public static Font UiSemi(float size) => UiSemiFamily != null ? new Font(UiSemiFamily, size) : new Font(UiFamily, size, FontStyle.Bold);
-        public static Font UiTitle(float size) => UiDisplaySemi != null ? new Font(UiDisplaySemi, size) : UiSemi(size);
+        // UI text is IBM Plex Sans, bundled inside Pulp (see Fonts.cs). Segoe UI is the fallback.
+        public static Font Ui(float size) => Fonts.Make(Fonts.Sans, size, "Segoe UI");
+        public static Font UiSemi(float size) => Fonts.Make(Fonts.SansSemi, size, "Segoe UI", FontStyle.Bold);
+        public static Font UiTitle(float size) => UiSemi(size);
 
-        // Arabic text: Segoe UI Variable has no Arabic letters, so Windows falls back to an old font.
-        // Use SF Arabic if it's installed, then Dubai, then Segoe UI (which has proper Arabic).
-        public static readonly string ArabicFamily =
-            FontExists("SF Arabic") ? "SF Arabic" : FontExists("SF Pro Arabic") ? "SF Pro Arabic"
-            : FontExists("Dubai") ? "Dubai" : "Segoe UI";
-        public static Font Arabic(float size) => new Font(ArabicFamily, size);
+        // Arabic text: IBM Plex Sans Arabic, drawn as a pair with Plex Sans so both languages match.
+        public static Font Arabic(float size) => Fonts.Make(Fonts.Arabic, size, "Segoe UI");
 
         public static bool HasArabic(string t)
         {

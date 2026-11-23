@@ -6,3 +6,4 @@ out/
 .vs/
 __pycache__/
 *.zip
+tests/out/

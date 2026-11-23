@@ -53,7 +53,7 @@ namespace Pulp
         Rectangle SearchField => new Rectangle(Pad, S(12), W - Pad * 2 - S(44), S(40));
         Rectangle MenuButton => new Rectangle(W - Pad - S(36), S(16), S(34), S(34));
         Rectangle ListRect => new Rectangle(0, ListTop, W, ListH);
-        int RowH(Item it) => it.Kind == Kind.Image ? S(92) : S(64);
+        int RowH(Item it) => it.Kind == Kind.Image ? S(96) : S(70);
 
         // quick filters shown as buttons under the search box (Ctrl+1..6 or Tab to switch)
         static readonly string[] FilterNames = { "All", "Text", "Links", "Images", "Files", "Pinned" };
@@ -82,11 +82,11 @@ namespace Pulp
 
             using (var g = CreateGraphics()) s = g.DpiX / 96f;
 
-            fBody = Theme.Ui(10.5f);
-            fBodyAr = Theme.Arabic(10.5f);
-            fSmall = Theme.Ui(9f);
-            fChip = Theme.Ui(9.5f);
-            fChipSel = Theme.UiSemi(9.5f);
+            fBody = Theme.Ui(12f);
+            fBodyAr = Theme.Arabic(12f);
+            fSmall = Theme.Ui(10.5f);
+            fChip = Theme.Ui(10f);
+            fChipSel = Theme.UiSemi(10f);
             fIcon = new Font(Theme.IconFont, 11.5f);
             fIconSmall = new Font(Theme.IconFont, 10f);
             fIconRow = new Font(Theme.IconFont, 13f);
@@ -435,7 +435,7 @@ namespace Pulp
                 string sub = query.Length > 0 ? "Try fewer words" + (filter != 0 ? ", or switch back to All" : "") : filter == 5 ? "Pin anything with Ctrl+P" : "Copy some text, a link, files or a screenshot";
                 int ey = lr.Y + Math.Min(S(150), lr.Height / 3);
                 TextRenderer.DrawText(g, head, fBody, new Rectangle(0, ey, W, S(26)), Theme.Sub, C);
-                TextRenderer.DrawText(g, sub, fSmall, new Rectangle(0, ey + S(28), W, S(20)), Theme.Dim, C);
+                TextRenderer.DrawText(g, sub, fSmall, new Rectangle(0, ey + S(30), W, S(22)), Theme.Dim, C);
             }
             else
             {
@@ -571,10 +571,10 @@ namespace Pulp
             int ty = it.Kind == Kind.Image ? r.Y + S(22) : r.Y + S(9);
             string title = Title(it);
             if (Theme.HasArabic(title))
-                TextRenderer.DrawText(g, title, fBodyAr, new Rectangle(x, ty, right - x, S(23)), Theme.Text,
+                TextRenderer.DrawText(g, title, fBodyAr, new Rectangle(x, ty, right - x, S(26)), Theme.Text,
                     Theme.RtlFirst(title) ? (L & ~TextFormatFlags.Left) | TextFormatFlags.Right | TextFormatFlags.RightToLeft : L);
-            else TextRenderer.DrawText(g, title, fBody, new Rectangle(x, ty, right - x, S(23)), Theme.Text, L);
-            var mr = new Rectangle(x, ty + S(25), right - x, S(19));
+            else TextRenderer.DrawText(g, title, fBody, new Rectangle(x, ty, right - x, S(26)), Theme.Text, L);
+            var mr = new Rectangle(x, ty + S(28), right - x, S(21));
             string meta = Meta(it);
             if (it.Original != null)
             {

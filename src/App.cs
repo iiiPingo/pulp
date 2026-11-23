@@ -154,7 +154,7 @@ namespace Pulp
             try { AppIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { AppIcon = SystemIcons.Application; }
 
             Panel = new PulpPanel(this);
-            menu = new ContextMenuStrip { Renderer = new DarkRenderer(), Font = Theme.Ui(9.5f), ShowImageMargin = true };
+            menu = new ContextMenuStrip { Renderer = new DarkRenderer(), Font = Theme.Ui(10f), ShowImageMargin = true };
             menu.Opening += (o, e) => { BuildMenu(); e.Cancel = false; };
             menu.Closed += (o, e) => ReleasePanel();
 
