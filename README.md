@@ -34,4 +34,4 @@ On Linux it builds against Mono's .NET Framework 4.8 reference assemblies (`mono
 C# WinForms on .NET Framework 4.8. SQLite through Windows' own built-in `winsqlite3.dll` (no packages), images stored as PNG with thumbnails, `AddClipboardFormatListener` for capture and `SendInput` for pasting.
 
 ## License
-MIT. The bundled IBM Plex fonts are under the SIL Open Font License (`src/fonts/OFL.txt`).
+PolyForm Noncommercial License 1.0.0: free to use, copy and change for non-commercial purposes, not for selling or other commercial use. See `LICENSE`. The bundled IBM Plex fonts are under the SIL Open Font License (`src/fonts/OFL.txt`).
