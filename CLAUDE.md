@@ -6,7 +6,8 @@ Clipboard history and link cleaner for Windows. Normal resizable window that hid
 - `cd src && dotnet build -c Release`. On Linux it builds against Mono's reference assemblies (`mono-devel`). `logo/make_ico.py` regenerates `src/pulp.ico`.
 - Version lives in `src/Pulp.csproj` (`<Version>`). Bump it every release; Minibar compares it with the GitHub tag.
 - Keep the csproj's Mono overrides inside the PropertyGroup conditioned on `'$(OS)' != 'Windows_NT'`, so it still builds on Windows.
-- Release asset: `Pulp-x.y.z.zip` containing `Pulp/Pulp.exe`, `Pulp.exe.config`, `README.txt`.
+- Release asset: `Pulp-x.y.z.zip` containing `Pulp/Pulp.exe`, `Pulp.exe.config`, `README.txt`, `FONT-LICENSE.txt`.
+- Tests: `tests/run.sh` builds the font and zoom tests with Mono and runs them (needs `mono-devel`).
 
 ## Gotchas
 - History is a SQLite database through Windows' built-in `winsqlite3.dll` (P/Invoke, no packages). Images are stored as PNG with thumbnails. It lives in `%APPDATA%\Pulp`. Never touch or commit it: it holds the user's clipboard history.
@@ -14,6 +15,8 @@ Clipboard history and link cleaner for Windows. Normal resizable window that hid
 - The link cleaner (`Links.cs`) only removes listed tracking parameters and every cleaned link can be undone. Don't make it remove unknown parameters.
 - `Pulp.exe --tray` starts hidden (used by Start with Windows). `Pulp.exe --exit` closes it cleanly (message `Pulp.Exit.v1`). Minibar relies on both.
 - The history list uses smooth scrolling and a custom scroll bar (drag or click the track). Keep painting cheap.
+- IBM Plex Sans and Plex Sans Arabic are built into `Pulp.exe` (`src/fonts`, SIL Open Font License) and loaded for this process only by `Fonts.cs`, never installed. GDI+ and GDI each need their own registration, so keep both. The zip carries the license as `FONT-LICENSE.txt`.
+- History window zoom (`Zoom.cs`): 80% to 150% in 10% steps, by mouse wheel and keyboard, saved in settings.ini. A missing or out of range value falls back to 100%.
 
 ## Releasing
 When a change is ready to ship, leave it fully done, so the release can go out without rebuilding or repackaging:
