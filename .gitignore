@@ -1,9 +1,1 @@
-bin/
-obj/
-out/
-*.user
-*.suo
-.vs/
-__pycache__/
-*.zip
-tests/out/
+CLAUDE.md
